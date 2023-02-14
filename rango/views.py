@@ -9,6 +9,7 @@ from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout
 from datetime import datetime
+from rango.bing_search import run_query
 
 
 # helper function here
@@ -258,4 +259,19 @@ def restricted(request):
 #     logout(request)
 #     # Take the user back to the homepage.
 #     return redirect(reverse('rango:index'))
+
+# add bing search view
+def search(request):
+    result_list = []
+    context_dict = {}
+    if request.method == 'POST':
+        query = request.POST['query'].strip()
+        if query:
+            # Run our Bing function to get the results list!
+            result_list = run_query(query)
+            context_dict['query'] = query
+            context_dict['result_list'] = result_list
+    return render(request, 'rango/search.html', context=context_dict)
+
+
 
