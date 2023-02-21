@@ -1,4 +1,6 @@
 from django.shortcuts import render
+from django.utils.decorators import method_decorator
+from django.views import View
 from rango.models import Category, Page
 from rango.forms import CategoryForm, PageForm
 from django.shortcuts import redirect
@@ -40,6 +42,18 @@ def visitor_cookie_handler(request):
     request.session['visits'] = visits
 
 
+# help function to return a list of categories whose names closely
+# match the string provided by the user. Page 316
+def get_category_list(max_results=0, starts_with=''):
+    category_list = []
+    if starts_with:
+        category_list = Category.objects.filter(name__istartswith=starts_with)
+    if max_results > 0:
+        if len(category_list) > max_results:
+            category_list = category_list[:max_results]
+    return category_list
+
+
 # Create your views here.
 def index(request):
     # Construct a dictionary to pass to the template engine as its context.
@@ -60,14 +74,13 @@ def index(request):
     context_dict['pages'] = page_list
     # Call the helper function to handle the cookies
     visitor_cookie_handler(request)
-    #context_dict['visits'] = request.session['visits']
+    # context_dict['visits'] = request.session['visits']
     # Return response back to the user, updating any cookies that need changed.
     return render(request, 'rango/index.html', context=context_dict)
 
 
-
 def about(request):
-    context_dict = { }
+    context_dict = {}
     context_dict['my_name'] = 'Huapeng Xie!'
     visitor_cookie_handler(request)
     context_dict['visits'] = request.session['visits']
@@ -274,4 +287,31 @@ def search(request):
     return render(request, 'rango/search.html', context=context_dict)
 
 
+class LikeCategoryView(View):
+    @method_decorator(login_required)
+    def get(self, request):
+        category_id = request.GET['category_id']
+        try:
+            category = Category.objects.get(id=int(category_id))
+        except Category.DoesNotExist:
+            return HttpResponse(-1)
+        except ValueError:
+            return HttpResponse(-1)
+        category.likes = category.likes + 1
+        category.save()
+        return HttpResponse(category.likes)
+
+
+class CategorySuggestionView(View):
+    def get(self, request):
+        if 'suggestion' in request.GET:
+            suggestion = request.GET['suggestion']
+        else:
+            suggestion = ''
+        category_list = get_category_list(max_results=8,
+                                          starts_with=suggestion)
+        if len(category_list) == 0:
+            category_list = Category.objects.order_by('-likes')
+        return render(request, 'rango/categories.html',
+                      {'categories': category_list})
 
